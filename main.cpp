@@ -1,6 +1,7 @@
 #define F_CPU 1000000UL
 #define F_OSC 1000000
 
+#include <string.h>
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
@@ -60,8 +61,11 @@ inline void writeLatch(uint8_t data) {
  * 
  * mt[ROW][COLUMN][COLOR] = INTENSITY (8bit)
  */
-volatile uint8_t mt[8][8][3];
+uint8_t mt[16][8][3];
 
+const uint8_t MAX_INTENSITY = 7;
+const uint8_t MAX_ROW = 7;
+const uint8_t MAX_COLLUMN = 7;
 
 
 /**
@@ -74,7 +78,7 @@ uint8_t row = 0;
 uint8_t intensity = 0;
 SIGNAL(TIMER1_COMPA_vect) {
 	// Write blue byte
-	uint8_t blue = 0;
+/*	uint8_t blue = 0;
 	for(int col = 0; col < 8; col++) {
 		if(mt[row][col][2] > intensity) {
 			blue |= (1 << col);
@@ -95,13 +99,18 @@ SIGNAL(TIMER1_COMPA_vect) {
 		blue = 0xff; 
 	}*/
 	
+/*	writeLatch(~blue);
 	writeLatch(~blue);
-	writeLatch(~blue);
-	writeLatch(~blue);
+	writeLatch(~blue);*/
+
+	writeLatch(mt[intensity][row][0]);
+	writeLatch(mt[intensity][row][1]);
+	writeLatch(mt[intensity][row][2]);
 	
 	// Set current row
-	PORTD = 1 << row;
+	PORTD = 0;
 	srLatch();
+	PORTD = 1 << row;
 	
 //	writeLatch(0x00);
 	
@@ -111,12 +120,12 @@ SIGNAL(TIMER1_COMPA_vect) {
 	PORTC ^= ~0b00010000;*/
 	
 	row++;
-	if(row > 7) {
-		intensity += 1;
+	if(row > MAX_ROW) {
+		intensity++;
 		row = 0;
 	}
 	
-	if(intensity > 16) {
+	if(intensity > MAX_INTENSITY) {
 		intensity = 0;
 	}
 }
@@ -175,8 +184,21 @@ int main (void) {
 		}
 	}*/
 	
-	for(int i = 0; i < 8; ++i) {
-		mt[i][i][2] = i * 2 + 2; 
+	for(int i = 0 ; i <= MAX_INTENSITY; i ++) {
+		for(int r = 0 ; r <= MAX_ROW; r ++) {
+			mt[i][r][0] = 0b11111111;
+			mt[i][r][1] = 0b11111111;
+			mt[i][r][2] = 0b11111111;
+		}
+	}
+	
+	uint8_t ROW2INT[] = {0, 1, 2, 3, 4, 5, 6, 7};
+	
+	for(int r = 0; r < 8; ++r) {
+		const uint8_t intensity = ROW2INT[r];
+		for(int i = 0; i < intensity; ++i) {
+			mt[i][r][2] = ~(1 << r);
+		}
 	}
 
 	while(true);
