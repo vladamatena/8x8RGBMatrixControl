@@ -61,7 +61,7 @@ inline void writeLatch(uint8_t data) {
  * 
  * mt[ROW][COLUMN][COLOR] = INTENSITY (8bit)
  */
-uint8_t mt[16][8][3];
+uint8_t mt[3][8][8];
 
 const uint8_t MAX_INTENSITY = 7;
 const uint8_t MAX_ROW = 7;
@@ -77,9 +77,9 @@ const uint8_t MAX_COLLUMN = 7;
 uint8_t row = 0;
 uint8_t intensity = 0;
 SIGNAL(TIMER1_COMPA_vect) {
-	writeLatch(mt[intensity][row][0]);
-	writeLatch(mt[intensity][row][1]);
-	writeLatch(mt[intensity][row][2]);
+	writeLatch(mt[0][intensity][row]);
+	writeLatch(mt[1][intensity][row]);
+	writeLatch(mt[2][intensity][row]);
 	
 	// Set current row
 	PORTD = 0;
@@ -126,36 +126,11 @@ int main (void) {
 	TIMSK1 |= 1 << OCIE1A; // TC0 compare match A interrupt enable
 	sei();
 	
-/*	uint8_t data = 0;
-	while(true) {
-		writeLatch(0b00000000);
-		_delay_ms(100);
-	}*/
-
-/*	while(true) {
-		for(int r = 0; r < 8; ++r) {
-			PORTD = 1 << r;
-			
-			for(int c = 0; c < 255; c++) {
-				writeLatch(~c);
-				_delay_ms(25);
-			}
-		}
-	}*/
-	
-/*	while(true) {
-		_delay_ms(25);
-		
-		for(int i = 0; i < 8; ++i) {
-			mt[i][i][2]++;
-		}
-	}*/
-	
 	for(int i = 0 ; i <= MAX_INTENSITY; i ++) {
 		for(int r = 0 ; r <= MAX_ROW; r ++) {
-			mt[i][r][0] = 0b11111111;
-			mt[i][r][1] = 0b11111111;
-			mt[i][r][2] = 0b11111111;
+			mt[0][i][r] = 0b11111111;
+			mt[1][i][r] = 0b11111111;
+			mt[2][i][r] = 0b11111111;
 		}
 	}
 	
@@ -164,7 +139,7 @@ int main (void) {
 	for(int r = 0; r < 8; ++r) {
 		const uint8_t intensity = ROW2INT[r];
 		for(int i = 0; i < intensity; ++i) {
-			mt[i][r][2] = ~(1 << r);
+			mt[2][i][r] = ~(1 << r);
 		}
 	}
 
