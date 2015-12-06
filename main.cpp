@@ -77,32 +77,6 @@ const uint8_t MAX_COLLUMN = 7;
 uint8_t row = 0;
 uint8_t intensity = 0;
 SIGNAL(TIMER1_COMPA_vect) {
-	// Write blue byte
-/*	uint8_t blue = 0;
-	for(int col = 0; col < 8; col++) {
-		if(mt[row][col][2] > intensity) {
-			blue |= (1 << col);
-		}
-	}
-	for(int col = 0; col < 8; col++) {
-		if(mt[row][col][2] > intensity) {
-			blue |= (1 << col);
-		}
-	}
-	for(int col = 0; col < 8; col++) {
-		if(mt[row][col][2] > intensity) {
-			blue |= (1 << col);
-		}
-	}
-	/*
-	if(intensity < 32) {
-		blue = 0xff; 
-	}*/
-	
-/*	writeLatch(~blue);
-	writeLatch(~blue);
-	writeLatch(~blue);*/
-
 	writeLatch(mt[intensity][row][0]);
 	writeLatch(mt[intensity][row][1]);
 	writeLatch(mt[intensity][row][2]);
@@ -111,14 +85,7 @@ SIGNAL(TIMER1_COMPA_vect) {
 	PORTD = 0;
 	srLatch();
 	PORTD = 1 << row;
-	
-//	writeLatch(0x00);
-	
-	// Timer strobe
-/*	PORTC ^= 0b00010000;
-	_delay_ms(5);
-	PORTC ^= ~0b00010000;*/
-	
+		
 	row++;
 	if(row > MAX_ROW) {
 		intensity++;
@@ -152,7 +119,7 @@ int main (void) {
 	// Enable TIMER1 interrupt - plane switching
 	OCR1A  = 1; // Number to count up to
 	// COM1A1 COM1A0 COM1B1 COM1B0 – – WGM11 WGM10
-	TCCR1A = 0b0000'0001; // Clear Timer on Compare Match (CTC) mode
+	TCCR1A = 0b0000'0101; // Clear Timer on Compare Match (CTC) mode
 	// ICNC1 ICES1 – WGM13 WGM12 CS12 CS11 CS10 
 	TCCR1B = 0b0001'0011; // clock source CLK/1024, start timer
 	TIFR1 |= 1 << 6; // clear interrupt flag
