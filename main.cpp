@@ -166,7 +166,7 @@ int main (void) {
 		for(int i = 0 ; i <= MAX_INTENSITY; i++) {
 			for(int r = 0 ; r <= MAX_ROW; r++) {
 				for(int c = 0; c <= MAX_COLLUMN; c++) {
-					if(i <= (c + r*(step / 32) + step) % INTENSITIES) {
+					if(i < (c + r*(step / 32 % 2) + step) % INTENSITIES) {
 						mt[0][i * ROWS + r] &= ~(1 << c);
 						mt[1][i * ROWS + r] &= ~(1 << c);
 						mt[2][i * ROWS + r] &= ~(1 << c);
@@ -177,7 +177,7 @@ int main (void) {
 		
 		
 		
-		_delay_ms(50);
+		_delay_ms(150);
 		step++;
 		
 		// Liveness blink
