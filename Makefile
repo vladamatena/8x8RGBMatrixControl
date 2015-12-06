@@ -1,8 +1,8 @@
-program=hello
+program=control
 
-hello: main.hex
+control: main.hex
 
-CPPFLAGS=-Os -std=c++1y -mmcu=atmega328p -fno-exceptions
+CPPFLAGS=-Ofast -std=c++1y -mmcu=atmega328p -fno-exceptions
 
 main.elf: main.cpp
 	avr-gcc ${CPPFLAGS} -o $@ $<
