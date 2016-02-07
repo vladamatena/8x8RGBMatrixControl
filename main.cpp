@@ -7,21 +7,9 @@
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 
-void blink() {
-	// set port B for output
-	DDRB = 0xff;
 
-	// Blink everything connected to port B
-	while(true) {
-		PORTB = 0xff;
-
-		_delay_ms(500);
-
-		PORTB = 0x00;
-
-		_delay_ms(500);
-	}
-}
+#define NEGPORT PORTB
+#define NEGDDR DDRB
 
 inline void srSetup() {
 	DDRC |= 0b00000111;
@@ -29,20 +17,20 @@ inline void srSetup() {
 }
 
 inline void srClock() {
-	PORTC ^= 0b00000001;
-	PORTC ^= 0b00000001;
+	PORTC ^= 0b00000010;
+	PORTC ^= 0b00000010;
 }
 
 inline void srLatch() {
-	PORTC ^= 0b00000100;
-	PORTC ^= 0b00000100;
+	PORTC ^= 0b00000001;
+	PORTC ^= 0b00000001;
 }
 
 inline void writeLatch(uint8_t data) {
 	for(int i = 0; i < 8; ++i) {
-		PORTC &= ~0b00000010;
+		PORTC &= ~0b00000100;
 		if(data & 0b00000001) {
-			PORTC |= 0b00000010;
+			PORTC |= 0b00000100;
 		}
 		
 		srClock();
@@ -90,9 +78,9 @@ SIGNAL(TIMER1_COMPA_vect) {
 	writeLatch(mt[2][ir]);
 	
 	// Set current row
-	PORTD = 0;
+	NEGPORT = 0;
 	srLatch();
-	PORTD = 1 << ir % ROWS;
+	NEGPORT = 1 << ir % ROWS;
 	
 	ir++;
 	//ir &= 0b00111111;
@@ -100,10 +88,17 @@ SIGNAL(TIMER1_COMPA_vect) {
 		ir = 0;
 }
 
+uint8_t reverse(uint8_t b) {
+   b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+   b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+   b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+   return b;
+}
+
 int main (void) {
 	// First disable output
-	PORTD = 0b00000000;
-	DDRD = 0b11111111;
+	NEGPORT = 0b00000000;
+	NEGDDR = 0b11111111;
 	
 	
 	// 8Mhz - no prescaller system clock
@@ -141,6 +136,42 @@ int main (void) {
 	TIMSK1 |= 1 << OCIE1A; // TC0 compare match A interrupt enable
 	sei();
 	
+
+	
+	
+	
+	
+	
+	// Erase
+	for(int i = 0 ; i < INTENSITIES; i++) {
+		for(int r = 0 ; r < ROWS; r++) {
+			mt[0][i * ROWS + r] = 0b11111111;
+			mt[1][i * ROWS + r] = 0b11111111;
+			mt[2][i * ROWS + r] = 0b11111111;
+		}
+	}
+
+	
+	// Quicktest
+	for(int r = 0; r < 8; r++) {
+		for(int c = 0; c < 8; c++) {
+			for(int color = 0; color < 3; color++) {
+				for(int i = 0; i < INTENSITIES;i++) {
+					if(color == 0) {
+						mt[color][i * ROWS + r] &= reverse(~(1 << c));
+					} else {
+						mt[color][i * ROWS + r] &= ~(1 << c);
+					}
+					_delay_ms(1);
+				}
+				
+				for(int i = 0; i < INTENSITIES;i++) {
+					mt[color][i * ROWS + r] = 0b11111111;
+				}
+			}
+		}
+	}
+	
 	uint8_t step = 0;
 	while(true) {
 		// Erase
@@ -160,15 +191,20 @@ int main (void) {
 				mt[2][i * ROWS + r] = ~(1 << r);
 			}
 		}*/
+	
 		
 		
 		// Pattern
 		for(int i = 0 ; i <= MAX_INTENSITY; i++) {
 			for(int r = 0 ; r <= MAX_ROW; r++) {
 				for(int c = 0; c <= MAX_COLLUMN; c++) {
-					if(i < (c + r*(step / 32 % 2) + step) % INTENSITIES) {
+					if(i < (c + r*((step / 3 + 0) / 32 % 2) + (step / 3 + 0)) % INTENSITIES) {
 						mt[0][i * ROWS + r] &= ~(1 << c);
+					}
+					if(i < (c + r*((step / 3 + 1) / 32 % 2) + (step / 3 + 1)) % INTENSITIES) {
 						mt[1][i * ROWS + r] &= ~(1 << c);
+					}
+					if(i < (c + r*((step / 3 + 2) / 32 % 2) + (step / 3 + 2)) % INTENSITIES) {
 						mt[2][i * ROWS + r] &= ~(1 << c);
 					}
 				}
