@@ -61,6 +61,8 @@ const uint8_t MAX_COLLUMN = COLLUMNS - 1;
  */
 uint8_t mt[3][INTENSITIES * ROWS];
 
+uint16_t fb[ROWS][COLLUMNS]; // 0b----RRRRGGGGBBBB
+
 
 
 /**
@@ -95,10 +97,39 @@ uint8_t reverse(uint8_t b) {
    return b;
 }
 
+// Render frambuffer to mt data structure
+void render() {
+	// Erase
+	for(int i = 0 ; i < INTENSITIES; i++) {
+		for(int r = 0 ; r < ROWS; r++) {
+			mt[0][i * ROWS + r] = 0b11111111;
+			mt[1][i * ROWS + r] = 0b11111111;
+			mt[2][i * ROWS + r] = 0b11111111;
+		}
+	}
+	
+	// Set new data
+	for(int r = 0; r < 8; r++) {
+		for(int c = 0; c < 8; c++) {
+			const uint8_t red = (fb[r][c] & 0b0000111100000000) >> 8;
+			const uint8_t green = (fb[r][c] & 0b0000000011110000) >> 4;
+			const uint8_t blue = fb[r][c] & 0b0000000000001111;
+			
+			for(int i = 0; i < INTENSITIES;i++) {
+				if(red > i) mt[0][i * ROWS + r] &= reverse(~(1 << c));
+				if(green > i) mt[1][i * ROWS + r] &= ~(1 << c);
+				if(blue > i) mt[2][i * ROWS + r] &= ~(1 << c);
+			}
+		}
+	}
+}
+
 int main (void) {
 	// First disable output
 	NEGPORT = 0b00000000;
 	NEGDDR = 0b11111111;
+	
+	_delay_ms(100);
 	
 	
 	// 8Mhz - no prescaller system clock
@@ -136,10 +167,78 @@ int main (void) {
 	TIMSK1 |= 1 << OCIE1A; // TC0 compare match A interrupt enable
 	sei();
 	
-
+	// Erase framebuffer
+	for(int r = 0; r < ROWS; r++) {
+		for(int c = 0; c < COLLUMNS; c++) {
+			fb[r][c] = 0;
+		}
+	}
+	render();
+	
+	fb[0][0] = 0b0000111100000000;
+	fb[1][1] = 0b0000000011110000;
+	fb[2][2] = 0b0000000000001111;
+	
+	render();
+	
+	_delay_ms(100);
+	
+	// Pattern framebuffer
+	for(int r = 0; r < 8; r++) {
+		for(int c = 0; c < 8; c++) {
+			fb[r][c] = ((r*2) << 4) | (c*2);
+		}
+	}
+	render();
+	_delay_ms(1000);
+	
+	// Quicktest with framebuffer
+	for(int r = 0; r < 8; r++) {
+		for(int c = 0; c < 8; c++) {
+			fb[r][c] = 0b111100000000;
+			render();
+			_delay_ms(10);
+			fb[r][c] = 0b000011110000;
+			render();
+			_delay_ms(10);
+			fb[r][c] = 0b0000000001111;
+			render();
+			_delay_ms(10);
+			fb[r][c] = 0b0000000000000;
+		}
+	}
+	
+	// Quicktest with framebuffer - no delay
+	for(int r = 0; r < 8; r++) {
+		for(int c = 0; c < 8; c++) {
+			fb[r][c] = 0b111100000000;
+			render();
+			fb[r][c] = 0b000011110000;
+			render();
+			fb[r][c] = 0b0000000001111;
+			render();
+			fb[r][c] = 0b0000000000000;
+		}
+	}
+	
+	// "Random"
+	for(int i = 0; i < 255; ++i) {
+		for(int r = 0; r < 8; r++) {
+			for(int c = 0; c < 8; c++) {
+				fb[r][c] = r + c * i;
+			}
+		}
+		render();
+		_delay_ms(50);
+	}
 	
 	
 	
+	
+	
+	
+	
+	//// Now raw mode - no frambuffer
 	
 	
 	// Erase
