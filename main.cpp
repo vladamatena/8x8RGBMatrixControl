@@ -144,11 +144,6 @@ int main (void) {
 	
 	DDRC = 0b00010111;
 	
-	// Boot blink
-	PORTC |= 0b00010000;
-	_delay_ms(500);
-	PORTC &= ~0b00010000;
-		
 	
 	// Clear screen
 	srSetup();
@@ -181,12 +176,30 @@ int main (void) {
 	
 	render();
 	
-	_delay_ms(100);
+	_delay_ms(1000);
+	
+	// Demo pattern
+	for(int r = 0; r < 8; r++) {
+		for(int c = 0; c < 8; c++) {
+			fb[r][c] = (((8-c)+r & 0b1111) << 8) | ((r*2 & 0b1111) << 4) | (c*2 & 0b1111);
+		}
+	}
+	render();
+	while(true);
+	
 	
 	// Pattern framebuffer
 	for(int r = 0; r < 8; r++) {
 		for(int c = 0; c < 8; c++) {
-			fb[r][c] = ((r*2) << 4) | (c*2);
+			fb[r][c] = (((r*c) & 0b1111) << 8) | (((r*2) & 0b1111) << 4) | ((c*2) & 0b1111);
+		}
+	}
+	render();
+	_delay_ms(1000);
+	
+	for(int r = 0; r < 8; r++) {
+		for(int c = 0; c < 8; c++) {
+			fb[r][c] = ((r*c) << 8) | ((r*2) << 4) | (c*2);
 		}
 	}
 	render();
@@ -282,14 +295,14 @@ int main (void) {
 			}
 		}
 		
-	/*	
+		
 		// Diagonal
 		for(int r = 0; r < ROWS; ++r) {
 			const uint8_t intensity = (r + step) % INTENSITIES;
 			for(int i = 0; i < intensity; ++i) {
 				mt[2][i * ROWS + r] = ~(1 << r);
 			}
-		}*/
+		}
 	
 		
 		
@@ -314,8 +327,5 @@ int main (void) {
 		
 		_delay_ms(150);
 		step++;
-		
-		// Liveness blink
-		PORTC ^= 0b00010000;
 	}
 }
