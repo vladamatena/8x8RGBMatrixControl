@@ -7,6 +7,11 @@
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 
+#define BAUD 9600
+#include <util/setbaud.h>
+
+
+
 
 #define NEGPORT PORTB
 #define NEGDDR DDRB
@@ -90,6 +95,76 @@ SIGNAL(TIMER1_COMPA_vect) {
 		ir = 0;
 }
 
+
+bool state = false;
+uint8_t pos = 0;
+uint16_t data = 0;
+
+void render();
+
+// Serial coomunication interrupt
+ISR(USART_RX_vect) {
+	uint8_t c = UDR0;
+
+	if(!state) {
+		data = c;
+		state = true;
+		return;
+	} else {
+		data = (data << 8) | c;
+		state = false;
+	}
+	
+	// reset - new image
+	if(data & 0b1000000000000000) {
+		pos = 0;
+		return;
+	}
+	
+	// render - end of image
+	if(data & 0b0100000000000000) {
+		render();
+		return;
+	}
+	
+	fb[pos / 8][pos % 8] = data;
+	pos++;
+}
+
+void uart_init(void) {
+	UBRR0H = UBRRH_VALUE;
+	UBRR0L = UBRRL_VALUE;
+
+#if USE_2X
+    UCSR0A |= _BV(U2X0);
+#else
+    UCSR0A &= ~(_BV(U2X0));
+#endif
+
+	UCSR0B = _BV(RXEN0) | _BV(TXEN0) | _BV(RXCIE0); // Enable RX and TX and interrupt
+	UCSR0C = _BV(UCSZ01) | _BV(UCSZ00); // 8-bit data
+}
+
+void uart_putchar(char c) {
+    loop_until_bit_is_set(UCSR0A, UDRE0); // Wait until data register empty. 
+    UDR0 = c;
+}
+
+void uart_puts(const char *str) {
+	while(*str) {
+		uart_putchar(*str++);
+	}
+}
+/*void uart_putchar(char c) {
+    UDR0 = c;
+    loop_until_bit_is_set(UCSR0A, TXC0); // Wait until transmission ready. 
+}*/
+
+char uart_getchar(void) {
+    loop_until_bit_is_set(UCSR0A, RXC0); /* Wait until data exists. */
+    return UDR0;
+}
+
 uint8_t reverse(uint8_t b) {
    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
    b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
@@ -162,22 +237,6 @@ int main (void) {
 	TIMSK1 |= 1 << OCIE1A; // TC0 compare match A interrupt enable
 	sei();
 	
-	// Erase framebuffer
-	for(int r = 0; r < ROWS; r++) {
-		for(int c = 0; c < COLLUMNS; c++) {
-			fb[r][c] = 0;
-		}
-	}
-	render();
-	
-	fb[0][0] = 0b0000111100000000;
-	fb[1][1] = 0b0000000011110000;
-	fb[2][2] = 0b0000000000001111;
-	
-	render();
-	
-	_delay_ms(1000);
-	
 	// Demo pattern
 	for(int r = 0; r < 8; r++) {
 		for(int c = 0; c < 8; c++) {
@@ -185,7 +244,25 @@ int main (void) {
 		}
 	}
 	render();
-	while(true);
+	
+	
+	uart_init();
+	
+	
+	uart_puts("Hello world !!!\n\r");
+	
+	while(true) {
+//		char c = UDR0;
+//		UDR0 = c;
+	}
+	
+	while(true) {
+		uart_puts("Going to read\n\r");
+		char c = uart_getchar();
+		uart_puts("Read:\n\r");
+		uart_putchar(c);
+		uart_puts("Done\n\r");
+	}
 	
 	
 	// Pattern framebuffer

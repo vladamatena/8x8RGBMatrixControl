@@ -16,3 +16,7 @@ clean:
 
 flash: main.hex
 	avrdude -u -c usbasp -p atmega328p -U flash:w:main.hex:i
+
+stty:
+	stty -F /dev/ttyUSB0 raw speed 9600 -crtscts cs8 -parenb -cstopb
+
