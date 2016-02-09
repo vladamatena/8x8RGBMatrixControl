@@ -7,7 +7,7 @@
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 
-#define BAUD 9600
+#define BAUD 57600
 #include <util/setbaud.h>
 
 
@@ -58,13 +58,14 @@ const uint8_t MAX_COLLUMN = COLLUMNS - 1;
 /**
  * Framebuffer
  * 
- * mt[COLOR_CNANNEL][INTENSITY_PLANE * 8 + row]
+ * mt[BUFFER][COLOR_CNANNEL][INTENSITY_PLANE * 8 + row]
  * 
  * Framebuffer is cyclicaly rendered every time one row wit one intensity plane.
  * Intensity is defined by number of intensity planes containing 1 in the place
  * representing particular LED.
  */
-uint8_t mt[3][INTENSITIES * ROWS];
+uint8_t mt[2][3][INTENSITIES * ROWS];
+uint8_t curMt = 0;
 
 uint16_t fb[ROWS][COLLUMNS]; // 0b----RRRRGGGGBBBB
 
@@ -108,13 +109,15 @@ uint8_t reverse(uint8_t b) {
 }
 
 // Render frambuffer to mt data structure
+// use double buffering (curMt and newMt)
 void render() {
+	uint8_t newMt = (curMt + 1) % 2;
 	// Erase
 	for(int i = 0 ; i < INTENSITIES; i++) {
 		for(int r = 0 ; r < ROWS; r++) {
-			mt[0][i * ROWS + r] = 0b11111111;
-			mt[1][i * ROWS + r] = 0b11111111;
-			mt[2][i * ROWS + r] = 0b11111111;
+			mt[newMt][0][i * ROWS + r] = 0b11111111;
+			mt[newMt][1][i * ROWS + r] = 0b11111111;
+			mt[newMt][2][i * ROWS + r] = 0b11111111;
 		}
 	}
 	
@@ -126,12 +129,15 @@ void render() {
 			const uint8_t blue = fb[r][c] & 0b0000000000001111;
 			
 			for(int i = 0; i < INTENSITIES;i++) {
-				if(red > i) mt[0][i * ROWS + r] &= reverse(~(1 << c));
-				if(green > i) mt[1][i * ROWS + r] &= ~(1 << c);
-				if(blue > i) mt[2][i * ROWS + r] &= ~(1 << c);
+				if(red > i) mt[newMt][0][i * ROWS + r] &= reverse(~(1 << c));
+				if(green > i) mt[newMt][1][i * ROWS + r] &= ~(1 << c);
+				if(blue > i) mt[newMt][2][i * ROWS + r] &= ~(1 << c);
 			}
 		}
 	}
+	
+	// Swap buffers
+	curMt = newMt;
 }
 
 uint8_t pos = 0;
@@ -166,9 +172,9 @@ ISR(USART_RX_vect) {
  */
 uint8_t ir = 0;
 inline void serviceScreen() {
-	writeLatch(mt[0][ir]);
-	writeLatch(mt[1][ir]);
-	writeLatch(mt[2][ir]);
+	writeLatch(mt[curMt][0][ir]);
+	writeLatch(mt[curMt][1][ir]);
+	writeLatch(mt[curMt][2][ir]);
 	
 	// Set current row
 	NEGPORT = 0;
