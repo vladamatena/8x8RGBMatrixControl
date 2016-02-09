@@ -105,7 +105,9 @@ void render();
 // Serial coomunication interrupt
 ISR(USART_RX_vect) {
 	uint8_t c = UDR0;
-
+	
+	((uint8_t*)fb)[pos++ % 128] = c;
+/*
 	if(!state) {
 		data = c;
 		state = true;
@@ -116,19 +118,19 @@ ISR(USART_RX_vect) {
 	}
 	
 	// reset - new image
-	if(data & 0b1000000000000000) {
+	if(data == 0b1000000000000000) {
 		pos = 0;
 		return;
 	}
 	
 	// render - end of image
-	if(data & 0b0100000000000000) {
+	if(data == 0b0100000000000000) {
 		render();
 		return;
 	}
 	
 	fb[pos / 8][pos % 8] = data;
-	pos++;
+	pos++;*/
 }
 
 void uart_init(void) {
@@ -249,160 +251,10 @@ int main (void) {
 	uart_init();
 	
 	
-	uart_puts("Hello world !!!\n\r");
+	uart_puts("Waiting for input image\n\r");
 	
 	while(true) {
-//		char c = UDR0;
-//		UDR0 = c;
-	}
-	
-	while(true) {
-		uart_puts("Going to read\n\r");
-		char c = uart_getchar();
-		uart_puts("Read:\n\r");
-		uart_putchar(c);
-		uart_puts("Done\n\r");
-	}
-	
-	
-	// Pattern framebuffer
-	for(int r = 0; r < 8; r++) {
-		for(int c = 0; c < 8; c++) {
-			fb[r][c] = (((r*c) & 0b1111) << 8) | (((r*2) & 0b1111) << 4) | ((c*2) & 0b1111);
-		}
-	}
-	render();
-	_delay_ms(1000);
-	
-	for(int r = 0; r < 8; r++) {
-		for(int c = 0; c < 8; c++) {
-			fb[r][c] = ((r*c) << 8) | ((r*2) << 4) | (c*2);
-		}
-	}
-	render();
-	_delay_ms(1000);
-	
-	// Quicktest with framebuffer
-	for(int r = 0; r < 8; r++) {
-		for(int c = 0; c < 8; c++) {
-			fb[r][c] = 0b111100000000;
-			render();
-			_delay_ms(10);
-			fb[r][c] = 0b000011110000;
-			render();
-			_delay_ms(10);
-			fb[r][c] = 0b0000000001111;
-			render();
-			_delay_ms(10);
-			fb[r][c] = 0b0000000000000;
-		}
-	}
-	
-	// Quicktest with framebuffer - no delay
-	for(int r = 0; r < 8; r++) {
-		for(int c = 0; c < 8; c++) {
-			fb[r][c] = 0b111100000000;
-			render();
-			fb[r][c] = 0b000011110000;
-			render();
-			fb[r][c] = 0b0000000001111;
-			render();
-			fb[r][c] = 0b0000000000000;
-		}
-	}
-	
-	// "Random"
-	for(int i = 0; i < 255; ++i) {
-		for(int r = 0; r < 8; r++) {
-			for(int c = 0; c < 8; c++) {
-				fb[r][c] = r + c * i;
-			}
-		}
 		render();
 		_delay_ms(50);
-	}
-	
-	
-	
-	
-	
-	
-	
-	//// Now raw mode - no frambuffer
-	
-	
-	// Erase
-	for(int i = 0 ; i < INTENSITIES; i++) {
-		for(int r = 0 ; r < ROWS; r++) {
-			mt[0][i * ROWS + r] = 0b11111111;
-			mt[1][i * ROWS + r] = 0b11111111;
-			mt[2][i * ROWS + r] = 0b11111111;
-		}
-	}
-
-	
-	// Quicktest
-	for(int r = 0; r < 8; r++) {
-		for(int c = 0; c < 8; c++) {
-			for(int color = 0; color < 3; color++) {
-				for(int i = 0; i < INTENSITIES;i++) {
-					if(color == 0) {
-						mt[color][i * ROWS + r] &= reverse(~(1 << c));
-					} else {
-						mt[color][i * ROWS + r] &= ~(1 << c);
-					}
-					_delay_ms(1);
-				}
-				
-				for(int i = 0; i < INTENSITIES;i++) {
-					mt[color][i * ROWS + r] = 0b11111111;
-				}
-			}
-		}
-	}
-	
-	uint8_t step = 0;
-	while(true) {
-		// Erase
-		for(int i = 0 ; i < INTENSITIES; i++) {
-			for(int r = 0 ; r < ROWS; r++) {
-				mt[0][i * ROWS + r] = 0b11111111;
-				mt[1][i * ROWS + r] = 0b11111111;
-				mt[2][i * ROWS + r] = 0b11111111;
-			}
-		}
-		
-		
-		// Diagonal
-		for(int r = 0; r < ROWS; ++r) {
-			const uint8_t intensity = (r + step) % INTENSITIES;
-			for(int i = 0; i < intensity; ++i) {
-				mt[2][i * ROWS + r] = ~(1 << r);
-			}
-		}
-	
-		
-		
-		// Pattern
-		for(int i = 0 ; i <= MAX_INTENSITY; i++) {
-			for(int r = 0 ; r <= MAX_ROW; r++) {
-				for(int c = 0; c <= MAX_COLLUMN; c++) {
-					if(i < (c + r*((step / 3 + 0) / 32 % 2) + (step / 3 + 0)) % INTENSITIES) {
-						mt[0][i * ROWS + r] &= ~(1 << c);
-					}
-					if(i < (c + r*((step / 3 + 1) / 32 % 2) + (step / 3 + 1)) % INTENSITIES) {
-						mt[1][i * ROWS + r] &= ~(1 << c);
-					}
-					if(i < (c + r*((step / 3 + 2) / 32 % 2) + (step / 3 + 2)) % INTENSITIES) {
-						mt[2][i * ROWS + r] &= ~(1 << c);
-					}
-				}
-			}
-		}
-		
-		
-		
-		_delay_ms(150);
-		step++;
 	}
 }
