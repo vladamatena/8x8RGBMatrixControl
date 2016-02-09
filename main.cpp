@@ -79,7 +79,7 @@ uint16_t fb[ROWS][COLLUMNS]; // 0b----RRRRGGGGBBBB
 uint8_t row = 0;
 uint8_t intensity = 0;
 uint8_t ir = 0;
-SIGNAL(TIMER1_COMPA_vect) {
+inline void serviceScreen() {
 	writeLatch(mt[0][ir]);
 	writeLatch(mt[1][ir]);
 	writeLatch(mt[2][ir]);
@@ -90,24 +90,46 @@ SIGNAL(TIMER1_COMPA_vect) {
 	NEGPORT = 1 << ir % ROWS;
 	
 	ir++;
-	//ir &= 0b00111111;
-	if(ir > (INTENSITIES * ROWS - 1))
+	if(ir > (INTENSITIES * ROWS - 1)) {
 		ir = 0;
+	}
+}
+SIGNAL(TIMER1_COMPA_vect) {
+	serviceScreen();
 }
 
+void uart_puts(const char *str);
+void uart_putchar(char c);
 
 bool state = false;
 uint8_t pos = 0;
 uint16_t data = 0;
 
 void render();
+bool receiving = false;
 
+int xxxcnt = 0;
+char buff[10];
+
+bool dirty = false;
 // Serial coomunication interrupt
 ISR(USART_RX_vect) {
+//	receiving = true;
+	/*
+	while(RXC0) {
+		uint8_t c = UDR0;
+		((uint8_t*)fb)[pos++ % 128] = c;
+		
+		if(pos % 128 == 0) {
+			receiving = false;
+			render();
+		}
+	}
+*/
 	uint8_t c = UDR0;
-	
-	((uint8_t*)fb)[pos++ % 128] = c;
-/*
+	//loop_until_bit_is_set(UCSR0A, UDRE0);
+	//UDR0 = c;
+/*	
 	if(!state) {
 		data = c;
 		state = true;
@@ -120,28 +142,50 @@ ISR(USART_RX_vect) {
 	// reset - new image
 	if(data == 0b1000000000000000) {
 		pos = 0;
+		receiving = true;
 		return;
 	}
 	
 	// render - end of image
 	if(data == 0b0100000000000000) {
+		receiving = false;
 		render();
 		return;
 	}
 	
 	fb[pos / 8][pos % 8] = data;
 	pos++;*/
+	/*
+	buff[xxxcnt++] = c;
+	if(xxxcnt == 8) {
+		uart_putchar('#');
+		buff[xxxcnt++] = 0;
+		uart_puts(buff);
+		xxxcnt = 0;
+	}*/
+	
+	((uint8_t*)fb)[pos++ % 128] = c;
+	
+/*	for(int i = 0; i < c - '0'; ++i) {
+		uart_putchar('#');
+	}*/
+	//uart_putchar('\n');
+	
+	if(pos % 128 == 0) {
+		dirty = true;
+	}
+
 }
 
 void uart_init(void) {
 	UBRR0H = UBRRH_VALUE;
 	UBRR0L = UBRRL_VALUE;
-
+/*
 #if USE_2X
     UCSR0A |= _BV(U2X0);
 #else
     UCSR0A &= ~(_BV(U2X0));
-#endif
+#endif*/
 
 	UCSR0B = _BV(RXEN0) | _BV(TXEN0) | _BV(RXCIE0); // Enable RX and TX and interrupt
 	UCSR0C = _BV(UCSZ01) | _BV(UCSZ00); // 8-bit data
@@ -229,14 +273,14 @@ int main (void) {
 	writeLatch(0b11111111);
 	
 	
-	// Enable TIMER1 interrupt - plane switching
+/*	// Enable TIMER1 interrupt - plane switching
 	OCR1A  = 10; // Number to count up to
 	// COM1A1 COM1A0 COM1B1 COM1B0 – – WGM11 WGM10
 	TCCR1A = 0b0000'0101; // Clear Timer on Compare Match (CTC) mode
 	// ICNC1 ICES1 – WGM13 WGM12 CS12 CS11 CS10 
 	TCCR1B = 0b0001'0011; // clock source CLK/1024, start timer
 	TIFR1 |= 1 << 6; // clear interrupt flag
-	TIMSK1 |= 1 << OCIE1A; // TC0 compare match A interrupt enable
+	TIMSK1 |= 1 << OCIE1A; // TC0 compare match A interrupt enable*/
 	sei();
 	
 	// Demo pattern
@@ -251,10 +295,17 @@ int main (void) {
 	uart_init();
 	
 	
-	uart_puts("Waiting for input image\n\r");
+//	uart_puts("Waiting for input image\n\r");
 	
 	while(true) {
-		render();
-		_delay_ms(50);
+//		_delay_ms(10);
+		if(!receiving) {
+			serviceScreen();
+		}
+		
+		if(dirty) {
+			render();
+			dirty = false;
+		}
 	}
 }
