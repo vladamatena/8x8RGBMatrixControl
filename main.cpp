@@ -100,6 +100,7 @@ SIGNAL(TIMER1_COMPA_vect) {
 
 void uart_puts(const char *str);
 void uart_putchar(char c);
+char uart_getchar();
 
 bool state = false;
 uint8_t pos = 0;
@@ -108,8 +109,6 @@ uint16_t data = 0;
 void render();
 bool receiving = false;
 
-int xxxcnt = 0;
-char buff[10];
 
 bool dirty = false;
 // Serial coomunication interrupt
@@ -127,9 +126,10 @@ ISR(USART_RX_vect) {
 	}
 */
 	uint8_t c = UDR0;
+	uint8_t d = uart_getchar();
 	//loop_until_bit_is_set(UCSR0A, UDRE0);
 	//UDR0 = c;
-/*	
+	/*
 	if(!state) {
 		data = c;
 		state = true;
@@ -137,43 +137,37 @@ ISR(USART_RX_vect) {
 	} else {
 		data = (data << 8) | c;
 		state = false;
-	}
+	}*/
+	
+	data = d;
+	data = data << 8;
+	data = data | c;
 	
 	// reset - new image
 	if(data == 0b1000000000000000) {
 		pos = 0;
-		receiving = true;
+//		receiving = true;
 		return;
 	}
 	
 	// render - end of image
 	if(data == 0b0100000000000000) {
-		receiving = false;
-		render();
+//		receiving = false;
+		dirty = true;
 		return;
 	}
 	
-	fb[pos / 8][pos % 8] = data;
-	pos++;*/
-	/*
-	buff[xxxcnt++] = c;
-	if(xxxcnt == 8) {
-		uart_putchar('#');
-		buff[xxxcnt++] = 0;
-		uart_puts(buff);
-		xxxcnt = 0;
-	}*/
+	//fb[pos / 8][pos % 8] = data;
+	//pos++;
 	
+	((uint16_t*)fb)[pos++ % 64] = data;
+	
+/*	
 	((uint8_t*)fb)[pos++ % 128] = c;
-	
-/*	for(int i = 0; i < c - '0'; ++i) {
-		uart_putchar('#');
-	}*/
-	//uart_putchar('\n');
 	
 	if(pos % 128 == 0) {
 		dirty = true;
-	}
+	}*/
 
 }
 
