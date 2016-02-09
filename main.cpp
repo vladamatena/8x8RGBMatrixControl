@@ -7,7 +7,7 @@
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 
-#define BAUD 57600
+#define BAUD 9600
 #include <util/setbaud.h>
 
 
