@@ -45,7 +45,6 @@ inline void writeLatch(uint8_t data) {
 }
 
 
-
 const uint8_t INTENSITIES = 16;
 const uint8_t MAX_INTENSITY = INTENSITIES - 1;
 
@@ -67,7 +66,7 @@ const uint8_t MAX_COLLUMN = COLLUMNS - 1;
 uint8_t mt[2][3][INTENSITIES * ROWS];
 uint8_t curMt = 0;
 
-uint16_t fb[ROWS][COLLUMNS]; // 0b----RRRRGGGGBBBB
+uint8_t fb[ROWS][COLLUMNS]; // 0b--RRGGBB
 
 
 
@@ -108,6 +107,19 @@ uint8_t reverse(uint8_t b) {
    return b;
 }
 
+uint8_t c2bto4b(uint8_t d2b) {
+	switch(d2b) {
+		case 0b00:
+			return 0b0000;
+		case 0b01:
+			return 0b0001;
+		case 0b10:
+			return 0b0100;
+		case 0b11:
+			return 0b1111;
+	}
+}
+
 // Render frambuffer to mt data structure
 // use double buffering (curMt and newMt)
 void render() {
@@ -124,9 +136,9 @@ void render() {
 	// Set new data
 	for(int r = 0; r < 8; r++) {
 		for(int c = 0; c < 8; c++) {
-			const uint8_t red = (fb[r][c] & 0b0000111100000000) >> 8;
-			const uint8_t green = (fb[r][c] & 0b0000000011110000) >> 4;
-			const uint8_t blue = fb[r][c] & 0b0000000000001111;
+			const uint8_t red = c2bto4b((fb[r][c] >> 4) & 0b11);
+			const uint8_t green = c2bto4b((fb[r][c] >> 2) & 0b11);
+			const uint8_t blue = c2bto4b(fb[r][c] & 0b011);
 			
 			for(int i = 0; i < INTENSITIES;i++) {
 				if(red > i) mt[newMt][0][i * ROWS + r] &= reverse(~(1 << c));
@@ -144,27 +156,21 @@ uint8_t pos = 0;
 bool dirty = false;
 // Serial coomunication interrupt
 ISR(USART_RX_vect) {
-	union {
-		uint16_t val;
-		uint8_t bytes[2];
-	} data;
-	
-	data.bytes[0] = UDR0;
-	data.bytes[1] = uart_getchar();
+	uint8_t data = UDR0;
 	
 	// reset - new image
-	if(data.val == 0b1000000000000000) {
+	if(data & 0b10000000) {
 		pos = 0;
 		return;
 	}
 	
 	// render - end of image
-	if(data.val == 0b0100000000000000) {
+	if(data & 0b01000000) {
 		dirty = true;
 		return;
 	}
 	
-	((uint16_t*)fb)[pos++ % 64] = data.val;
+	((uint8_t*)fb)[pos++ % 64] = data;
 }
 
 /**
@@ -221,7 +227,7 @@ int main (void) {
 	// Demo pattern
 	for(int r = 0; r < 8; r++) {
 		for(int c = 0; c < 8; c++) {
-			fb[r][c] = (((8-c)+r & 0b1111) << 8) | ((r*2 & 0b1111) << 4) | (c*2 & 0b1111);
+			fb[r][c] = ((r / 2) & 0b11) | ((c / 2) & 0b11) << 2 | (((8 - r) / 4) & 0b11) << 4;
 		}
 	}
 	render();
